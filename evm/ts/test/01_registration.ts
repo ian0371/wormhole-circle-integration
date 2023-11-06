@@ -1,20 +1,20 @@
-import {expect} from "chai";
-import {ethers} from "ethers";
-import {tryNativeToUint8Array} from "@certusone/wormhole-sdk";
+import { expect } from "chai";
+import { ethers } from "ethers";
+import { tryNativeToUint8Array } from "@certusone/wormhole-sdk";
 import {
   GUARDIAN_PRIVATE_KEY,
   WORMHOLE_GUARDIAN_SET_INDEX,
   ETH_LOCALHOST,
   WALLET_PRIVATE_KEY,
-  AVAX_LOCALHOST,
+  KLAYTN_LOCALHOST,
   ETH_FORK_CHAIN_ID,
-  AVAX_FORK_CHAIN_ID,
+  KLAYTN_FORK_CHAIN_ID,
 } from "./helpers/consts";
-import {ICircleIntegration__factory} from "../src/ethers-contracts";
-import {MockGuardians} from "@certusone/wormhole-sdk/lib/cjs/mock";
+import { ICircleIntegration__factory } from "../src/ethers-contracts";
+import { MockGuardians } from "@certusone/wormhole-sdk/lib/cjs/mock";
 
-import {CircleGovernanceEmitter} from "./helpers/mock";
-import {getTimeNow, readCircleIntegrationProxyAddress} from "./helpers/utils";
+import { CircleGovernanceEmitter } from "./helpers/mock";
+import { getTimeNow, readCircleIntegrationProxyAddress } from "./helpers/utils";
 
 describe("Circle Integration Registration", () => {
   // ethereum wallet, CircleIntegration contract and USDC contract
@@ -25,14 +25,14 @@ describe("Circle Integration Registration", () => {
     ethWallet
   );
 
-  // avalanche wallet, CircleIntegration contract and USDC contract
-  const avaxProvider = new ethers.providers.StaticJsonRpcProvider(
-    AVAX_LOCALHOST
+  // klaytn wallet, CircleIntegration contract and USDC contract
+  const klaytnProvider = new ethers.providers.StaticJsonRpcProvider(
+    KLAYTN_LOCALHOST
   );
-  const avaxWallet = new ethers.Wallet(WALLET_PRIVATE_KEY, avaxProvider);
-  const avaxCircleIntegration = ICircleIntegration__factory.connect(
-    readCircleIntegrationProxyAddress(AVAX_FORK_CHAIN_ID),
-    avaxWallet
+  const klaytnWallet = new ethers.Wallet(WALLET_PRIVATE_KEY, klaytnProvider);
+  const klaytnCircleIntegration = ICircleIntegration__factory.connect(
+    readCircleIntegrationProxyAddress(KLAYTN_FORK_CHAIN_ID),
+    klaytnWallet
   );
 
   // MockGuardians and MockCircleAttester objects
@@ -48,11 +48,11 @@ describe("Circle Integration Registration", () => {
       it("Should Register Foreign Circle Integration", async () => {
         const timestamp = getTimeNow();
         const chainId = await ethCircleIntegration.chainId();
-        const emitterChain = await avaxCircleIntegration.chainId();
+        const emitterChain = await klaytnCircleIntegration.chainId();
         const emitterAddress = Buffer.from(
-          tryNativeToUint8Array(avaxCircleIntegration.address, "avalanche")
+          tryNativeToUint8Array(klaytnCircleIntegration.address, "klaytn")
         );
-        const domain = await avaxCircleIntegration.localDomain();
+        const domain = await klaytnCircleIntegration.localDomain();
 
         // create unsigned registerEmitterAndDomain governance message
         const published =
@@ -86,13 +86,13 @@ describe("Circle Integration Registration", () => {
       });
     });
 
-    describe("Avalanche Fuji Testnet", () => {
+    describe("Klaytn Baobab Testnet", () => {
       it("Should Register Foreign Circle Integration", async () => {
         const timestamp = getTimeNow();
-        const chainId = await avaxCircleIntegration.chainId();
+        const chainId = await klaytnCircleIntegration.chainId();
         const emitterChain = await ethCircleIntegration.chainId();
         const emitterAddress = Buffer.from(
-          tryNativeToUint8Array(ethCircleIntegration.address, "avalanche")
+          tryNativeToUint8Array(ethCircleIntegration.address, "klaytn")
         );
         const domain = await ethCircleIntegration.localDomain();
 
@@ -108,7 +108,7 @@ describe("Circle Integration Registration", () => {
         const signedMessage = guardians.addSignatures(published, [0]);
 
         // sign governance message with guardian key
-        const receipt = await avaxCircleIntegration
+        const receipt = await klaytnCircleIntegration
           .registerEmitterAndDomain(signedMessage)
           .then((tx) => tx.wait())
           .catch((msg) => {
@@ -119,7 +119,7 @@ describe("Circle Integration Registration", () => {
         expect(receipt).is.not.null;
 
         // check contract state to verify the registration
-        const registeredEmitter = await avaxCircleIntegration
+        const registeredEmitter = await klaytnCircleIntegration
           .getRegisteredEmitter(emitterChain)
           .then((bytes) => Buffer.from(ethers.utils.arrayify(bytes)));
         expect(Buffer.compare(registeredEmitter, emitterAddress)).to.equal(0);

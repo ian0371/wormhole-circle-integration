@@ -1,7 +1,7 @@
-import {ethers} from "ethers";
+import { ethers } from "ethers";
 
 // ethereum goerli testnet fork
-export const ETH_LOCALHOST = "http://localhost:8546";
+export const ETH_LOCALHOST = "http://127.0.0.1:8546";
 export const ETH_FORK_CHAIN_ID = Number(process.env.ETH_FORK_CHAIN_ID!);
 export const ETH_WORMHOLE_ADDRESS = process.env.ETH_WORMHOLE_ADDRESS!;
 export const ETH_USDC_TOKEN_ADDRESS = process.env.ETH_USDC_TOKEN_ADDRESS!;
@@ -14,6 +14,14 @@ export const AVAX_WORMHOLE_ADDRESS = process.env.AVAX_WORMHOLE_ADDRESS!;
 export const AVAX_USDC_TOKEN_ADDRESS = process.env.AVAX_USDC_TOKEN_ADDRESS!;
 export const AVAX_CIRCLE_BRIDGE_ADDRESS =
   process.env.AVAX_CIRCLE_BRIDGE_ADDRESS!;
+
+// klaytn baobab testnet fork
+export const KLAYTN_LOCALHOST = "http://127.0.0.1:8547";
+export const KLAYTN_FORK_CHAIN_ID = Number(process.env.KLAYTN_FORK_CHAIN_ID!);
+export const KLAYTN_WORMHOLE_ADDRESS = process.env.KLAYTN_WORMHOLE_ADDRESS!;
+export const KLAYTN_USDC_TOKEN_ADDRESS = process.env.KLAYTN_USDC_TOKEN_ADDRESS!;
+export const KLAYTN_CIRCLE_BRIDGE_ADDRESS =
+  process.env.KLAYTN_CIRCLE_BRIDGE_ADDRESS!;
 
 // global
 export const WORMHOLE_MESSAGE_FEE = ethers.BigNumber.from(

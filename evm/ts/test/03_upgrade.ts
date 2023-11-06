@@ -1,22 +1,22 @@
-import {expect} from "chai";
-import {ethers} from "ethers";
-import {tryNativeToUint8Array} from "@certusone/wormhole-sdk";
+import { expect } from "chai";
+import { ethers } from "ethers";
+import { tryNativeToUint8Array } from "@certusone/wormhole-sdk";
 import {
   GUARDIAN_PRIVATE_KEY,
   WORMHOLE_GUARDIAN_SET_INDEX,
   ETH_LOCALHOST,
   WALLET_PRIVATE_KEY,
-  AVAX_LOCALHOST,
+  KLAYTN_LOCALHOST,
   ETH_FORK_CHAIN_ID,
-  AVAX_FORK_CHAIN_ID,
+  KLAYTN_FORK_CHAIN_ID,
 } from "./helpers/consts";
-import {ICircleIntegration__factory} from "../src/ethers-contracts";
-import {MockGuardians} from "@certusone/wormhole-sdk/lib/cjs/mock";
+import { ICircleIntegration__factory } from "../src/ethers-contracts";
+import { MockGuardians } from "@certusone/wormhole-sdk/lib/cjs/mock";
 
-import {CircleGovernanceEmitter} from "./helpers/mock";
-import {getTimeNow, readCircleIntegrationProxyAddress} from "./helpers/utils";
+import { CircleGovernanceEmitter } from "./helpers/mock";
+import { getTimeNow, readCircleIntegrationProxyAddress } from "./helpers/utils";
 
-const {execSync} = require("child_process");
+const { execSync } = require("child_process");
 
 describe("Circle Integration Implementation Upgrade", () => {
   // ethereum wallet, CircleIntegration contract and USDC contract
@@ -28,16 +28,16 @@ describe("Circle Integration Implementation Upgrade", () => {
     ethWallet
   );
 
-  // avalanche wallet, CircleIntegration contract and USDC contract
-  const avaxProvider = new ethers.providers.StaticJsonRpcProvider(
-    AVAX_LOCALHOST
+  // Klaytn wallet, CircleIntegration contract and USDC contract
+  const klaytnProvider = new ethers.providers.StaticJsonRpcProvider(
+    KLAYTN_LOCALHOST
   );
-  const avaxWallet = new ethers.Wallet(WALLET_PRIVATE_KEY, avaxProvider);
-  const avaxProxyAddress =
-    readCircleIntegrationProxyAddress(AVAX_FORK_CHAIN_ID);
-  const avaxCircleIntegration = ICircleIntegration__factory.connect(
-    avaxProxyAddress,
-    avaxWallet
+  const klaytnWallet = new ethers.Wallet(WALLET_PRIVATE_KEY, klaytnProvider);
+  const klaytnProxyAddress =
+    readCircleIntegrationProxyAddress(KLAYTN_FORK_CHAIN_ID);
+  const klaytnCircleIntegration = ICircleIntegration__factory.connect(
+    klaytnProxyAddress,
+    klaytnWallet
   );
 
   // MockGuardians and MockCircleAttester objects
@@ -60,15 +60,15 @@ describe("Circle Integration Implementation Upgrade", () => {
       });
     });
 
-    describe("Avalanche Fuji Testnet", () => {
+    describe("Klaytn Baobab Testnet", () => {
       it("Deploy", async () => {
         const output = execSync(
-          `RPC=${AVAX_LOCALHOST} PRIVATE_KEY=${WALLET_PRIVATE_KEY} yarn deploy-implementation-only`
+          `RPC=${KLAYTN_LOCALHOST} PRIVATE_KEY=${WALLET_PRIVATE_KEY} yarn deploy-implementation-only`
         ).toString();
         const address = output.match(
           /CircleIntegrationImplementation: (0x[A-Fa-f0-9]+)/
         )[1];
-        newImplementations.set("avalanche", address);
+        newImplementations.set("klaytn", address);
       });
     });
   });
@@ -121,17 +121,17 @@ describe("Circle Integration Implementation Upgrade", () => {
       });
     });
 
-    describe("Avalanche Fuji Testnet", () => {
-      const chainName = "avalanche";
+    describe("Klaytn Baobab Testnet", () => {
+      const chainName = "klaytn";
 
       it("Upgrade", async () => {
         const timestamp = getTimeNow();
-        const chainId = await avaxCircleIntegration.chainId();
+        const chainId = await klaytnCircleIntegration.chainId();
         const newImplementation = newImplementations.get(chainName);
         expect(newImplementation).is.not.undefined;
 
         {
-          const initialized = await avaxCircleIntegration.isInitialized(
+          const initialized = await klaytnCircleIntegration.isInitialized(
             newImplementation!
           );
           expect(initialized).is.false;
@@ -150,14 +150,14 @@ describe("Circle Integration Implementation Upgrade", () => {
         // upgrade contract with new implementation
         execSync(
           `yarn upgrade-proxy \
-            --rpc-url ${AVAX_LOCALHOST} \
+            --rpc-url ${KLAYTN_LOCALHOST} \
             --private-key ${WALLET_PRIVATE_KEY} \
-            --proxy ${avaxProxyAddress} \
+            --proxy ${klaytnProxyAddress} \
             --governance-message ${signedMessage.toString("hex")}`
         );
 
         {
-          const initialized = await avaxCircleIntegration.isInitialized(
+          const initialized = await klaytnCircleIntegration.isInitialized(
             newImplementation!
           );
           expect(initialized).is.true;

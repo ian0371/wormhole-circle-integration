@@ -66,6 +66,10 @@ interface ICircleBridge {
 
     function localMinter() external view returns (ITokenMinter);
 
+    function addRemoteTokenMessenger(uint32 domain, bytes32 tokenMessenger) external;
+
+    function remoteTokenMessengers(uint32) external view returns (bytes32);
+
     function remoteCircleBridges(uint32 domain) external view returns (bytes32);
 
     // owner only methods

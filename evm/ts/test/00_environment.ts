@@ -1,22 +1,24 @@
-import {expect} from "chai";
-import {ethers} from "ethers";
+import { expect } from "chai";
+import { ethers } from "ethers";
 import {
-  CHAIN_ID_AVAX,
   CHAIN_ID_ETH,
+  CHAIN_ID_KLAYTN,
   tryNativeToHexString,
+  tryNativeToUint8Array,
 } from "@certusone/wormhole-sdk";
 import {
   ICircleBridge__factory,
   IMessageTransmitter__factory,
+  ITokenMinter__factory,
   IUSDC__factory,
   IWormhole__factory,
 } from "../src/ethers-contracts";
 import {
-  AVAX_CIRCLE_BRIDGE_ADDRESS,
-  AVAX_FORK_CHAIN_ID,
-  AVAX_LOCALHOST,
-  AVAX_USDC_TOKEN_ADDRESS,
-  AVAX_WORMHOLE_ADDRESS,
+  KLAYTN_CIRCLE_BRIDGE_ADDRESS,
+  KLAYTN_FORK_CHAIN_ID,
+  KLAYTN_LOCALHOST,
+  KLAYTN_USDC_TOKEN_ADDRESS,
+  KLAYTN_WORMHOLE_ADDRESS,
   ETH_CIRCLE_BRIDGE_ADDRESS,
   ETH_FORK_CHAIN_ID,
   ETH_LOCALHOST,
@@ -159,6 +161,58 @@ describe("Environment Test", () => {
           provider
         );
 
+        const localMinter = await circleBridge
+          .localMinter()
+          .then((address) => ITokenMinter__factory.connect(address, provider));
+        const tokenController = await localMinter.tokenController();
+
+        // start prank (impersonate the Minter)
+        await provider.send("anvil_impersonateAccount", [tokenController]);
+        let receipt: any = await localMinter
+          .connect(provider.getSigner(tokenController))
+          .linkTokenPair(
+            ETH_USDC_TOKEN_ADDRESS,
+            KLAYTN_FORK_CHAIN_ID,
+            tryNativeToUint8Array(KLAYTN_USDC_TOKEN_ADDRESS, "klaytn")
+          )
+          .then((tx) => tx.wait())
+          .catch((msg) => {
+            // should not happen
+            console.log(msg);
+            return null;
+          });
+        expect(receipt).is.not.null;
+
+        // stop prank
+        await provider.send("anvil_stopImpersonatingAccount", [
+          tokenController,
+        ]);
+
+        // fetch owner
+        const bridgeOwner = await circleBridge.owner();
+
+        // start prank (impersonate the Circle Bridge owner)
+        await provider.send("anvil_impersonateAccount", [bridgeOwner]);
+
+        receipt = await circleBridge
+          .connect(provider.getSigner(bridgeOwner))
+          .addRemoteTokenMessenger(
+            KLAYTN_FORK_CHAIN_ID,
+            tryNativeToUint8Array(KLAYTN_CIRCLE_BRIDGE_ADDRESS, "klaytn")
+          )
+          .then((tx) => tx.wait())
+          .catch((msg) => {
+            // should not happen
+            console.log(msg);
+            return null;
+          });
+        expect(receipt).is.not.null;
+        expect(await circleBridge.remoteTokenMessengers(CHAIN_ID_KLAYTN)).is.not
+          .null;
+
+        // stop prank
+        await provider.send("anvil_stopImpersonatingAccount", [bridgeOwner]);
+
         // fetch attestation manager address
         const attesterManager = await circleBridge
           .localMessageTransmitter()
@@ -182,15 +236,17 @@ describe("Environment Test", () => {
           );
 
         // update the number of required attestations to one
-        const receipt = await messageTransmitter
-          .setSignatureThreshold(ethers.BigNumber.from("1"))
-          .then((tx) => tx.wait())
-          .catch((msg) => {
-            // should not happen
-            console.log(msg);
-            return null;
-          });
-        expect(receipt).is.not.null;
+        {
+          const receipt = await messageTransmitter
+            .setSignatureThreshold(ethers.BigNumber.from("1"))
+            .then((tx) => tx.wait())
+            .catch((msg) => {
+              // should not happen
+              console.log(msg);
+              return null;
+            });
+          expect(receipt).is.not.null;
+        }
 
         // enable devnet guardian as attester
         {
@@ -284,35 +340,35 @@ describe("Environment Test", () => {
     });
   });
 
-  describe("Avalanche Fuji Testnet Fork", () => {
+  describe("Klaytn Baobab Testnet Fork", () => {
     describe("Environment", () => {
       it("Variables", () => {
-        expect(AVAX_LOCALHOST).is.not.undefined;
-        expect(AVAX_FORK_CHAIN_ID).is.not.undefined;
-        expect(AVAX_WORMHOLE_ADDRESS).is.not.undefined;
-        expect(AVAX_USDC_TOKEN_ADDRESS).is.not.undefined;
-        expect(AVAX_CIRCLE_BRIDGE_ADDRESS).is.not.undefined;
+        expect(KLAYTN_LOCALHOST).is.not.undefined;
+        expect(KLAYTN_FORK_CHAIN_ID).is.not.undefined;
+        expect(KLAYTN_WORMHOLE_ADDRESS).is.not.undefined;
+        expect(KLAYTN_USDC_TOKEN_ADDRESS).is.not.undefined;
+        expect(KLAYTN_CIRCLE_BRIDGE_ADDRESS).is.not.undefined;
       });
     });
 
     describe("RPC", () => {
       const provider = new ethers.providers.StaticJsonRpcProvider(
-        AVAX_LOCALHOST
+        KLAYTN_LOCALHOST
       );
       const wormhole = IWormhole__factory.connect(
-        AVAX_WORMHOLE_ADDRESS,
+        KLAYTN_WORMHOLE_ADDRESS,
         provider
       );
-      expect(wormhole.address).to.equal(AVAX_WORMHOLE_ADDRESS);
+      expect(wormhole.address).to.equal(KLAYTN_WORMHOLE_ADDRESS);
 
       it("EVM Chain ID", async () => {
         const network = await provider.getNetwork();
-        expect(network.chainId).to.equal(AVAX_FORK_CHAIN_ID);
+        expect(network.chainId).to.equal(KLAYTN_FORK_CHAIN_ID);
       });
 
       it("Wormhole", async () => {
         const chainId = await wormhole.chainId();
-        expect(chainId).to.equal(CHAIN_ID_AVAX as number);
+        expect(chainId).to.equal(CHAIN_ID_KLAYTN as number);
 
         // fetch current wormhole protocol fee
         const messageFee = await wormhole.messageFee();
@@ -401,9 +457,34 @@ describe("Environment Test", () => {
       it("Circle", async () => {
         // instantiate Circle Bridge contract
         const circleBridge = ICircleBridge__factory.connect(
-          AVAX_CIRCLE_BRIDGE_ADDRESS,
+          KLAYTN_CIRCLE_BRIDGE_ADDRESS,
           provider
         );
+
+        /*
+        // fetch owner
+        const bridgeOwner = await circleBridge.owner();
+
+        // start prank (impersonate the Circle Bridge owner)
+        await provider.send("anvil_impersonateAccount", [bridgeOwner]);
+
+        const receipt = await circleBridge
+          .connect(provider.getSigner(bridgeOwner))
+          .addRemoteTokenMessenger(
+            0,
+            tryNativeToUint8Array(ETH_CIRCLE_BRIDGE_ADDRESS, "ethereum")
+          )
+          .then((tx) => tx.wait())
+          .catch((msg) => {
+            // should not happen
+            console.log(msg);
+            return null;
+          });
+        expect(receipt).is.not.null;
+
+        // stop prank
+        await provider.send("anvil_stopImpersonatingAccount", [bridgeOwner]);
+        */
 
         // fetch attestation manager address
         const attesterManager = await circleBridge
@@ -427,17 +508,6 @@ describe("Environment Test", () => {
             )
           );
         const existingAttester = await messageTransmitter.getEnabledAttester(0);
-
-        // update the number of required attestations to one
-        const receipt = await messageTransmitter
-          .setSignatureThreshold(ethers.BigNumber.from("1"))
-          .then((tx) => tx.wait())
-          .catch((msg) => {
-            // should not happen
-            console.log(msg);
-            return null;
-          });
-        expect(receipt).is.not.null;
 
         // enable devnet guardian as attester
         {
@@ -477,7 +547,7 @@ describe("Environment Test", () => {
       it("USDC", async () => {
         // fetch master minter address
         const masterMinter = await IUSDC__factory.connect(
-          AVAX_USDC_TOKEN_ADDRESS,
+          KLAYTN_USDC_TOKEN_ADDRESS,
           provider
         ).masterMinter();
 
@@ -489,7 +559,7 @@ describe("Environment Test", () => {
         // configure my wallet as minter
         {
           const usdc = IUSDC__factory.connect(
-            AVAX_USDC_TOKEN_ADDRESS,
+            KLAYTN_USDC_TOKEN_ADDRESS,
             provider.getSigner(masterMinter)
           );
 
@@ -509,7 +579,10 @@ describe("Environment Test", () => {
 
         // mint USDC and confirm with a balance check
         {
-          const usdc = IUSDC__factory.connect(AVAX_USDC_TOKEN_ADDRESS, wallet);
+          const usdc = IUSDC__factory.connect(
+            KLAYTN_USDC_TOKEN_ADDRESS,
+            wallet
+          );
           const amount = ethers.utils.parseUnits("69420", 6);
 
           const balanceBefore = await usdc.balanceOf(wallet.address);
